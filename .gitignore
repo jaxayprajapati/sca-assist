@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+
+# Virtual environment
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data
+data/
+experiments/
+tests/
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Scripts
+create_repo.py
