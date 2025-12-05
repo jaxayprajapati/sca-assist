@@ -8,8 +8,11 @@ a file and the console for easy debugging and monitoring.
 import logging
 import os
 
-# Directory where log files will be stored
-LOG_DIR = "logs"
+# Get the project root directory (parent of app folder)
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Directory where log files will be stored (in project root)
+LOG_DIR = os.path.join(ROOT_DIR, "logs")
 
 # Create logs directory if it doesn't exist
 if not os.path.exists(LOG_DIR):
