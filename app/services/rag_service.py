@@ -10,6 +10,7 @@ import tempfile
 from typing import List, Dict, Any, Tuple
 
 from app.utils.logging import logger
+from app.utils.prompt_loader import prompt_loader
 from app.services.ingest_service import ingest_service
 from app.services.openai_service import openai_service
 from app.services.mongodb_service import mongodb_service
@@ -161,18 +162,13 @@ class RAGService:
             for r in results
         ])
 
-        # Step 5: Generate answer using OpenAI
-        system_prompt = """You are a helpful assistant that answers questions based on the provided context.
-Use only the information from the context to answer the question.
-If the context doesn't contain enough information to answer, say so.
-Cite the page numbers when relevant."""
-
-        user_prompt = f"""Context:
-{context}
-
-Question: {question}
-
-Please provide a detailed answer based on the context above."""
+        # Step 5: Generate answer using OpenAI with prompts from YAML
+        system_prompt = prompt_loader.get_prompt("rag", "qa", "system")
+        user_prompt = prompt_loader.format_prompt(
+            "rag", "qa", "user",
+            context=context,
+            question=question
+        )
 
         answer = openai_service.chat(
             user_message=user_prompt,

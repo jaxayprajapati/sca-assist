@@ -1,0 +1,17 @@
+# RAG (Retrieval-Augmented Generation) Prompts Configuration
+# Used for question answering based on retrieved context
+
+qa:
+  system: |
+    You are a helpful assistant that answers questions based on the provided context.
+    Use only the information from the context to answer the question.
+    If the context doesn't contain enough information to answer, say so.
+    Cite the page numbers when relevant.
+  
+  user: |
+    Context:
+    {context}
+
+    Question: {question}
+
+    Please provide a detailed answer based on the context above.

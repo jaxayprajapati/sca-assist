@@ -2,22 +2,37 @@
 Reranker Service using OpenAI for improving search precision.
 
 This module provides reranking functionality using OpenAI's GPT model
-to score document relevance.
+to score document relevance with structured output.
 """
 
-import json
 from typing import List, Dict, Any
+
+from pydantic import BaseModel, Field
 
 from app.services.openai_service import openai_service
 from app.utils.logging import logger
+from app.utils.prompt_loader import prompt_loader
+
+
+# ==================== Pydantic Models for Structured Output ====================
+
+class DocumentScore(BaseModel):
+    """Model for a single document relevance score."""
+    index: int = Field(..., description="Document index (0-based)")
+    score: float = Field(..., ge=0, le=10, description="Relevance score (0-10)")
+
+
+class RerankerResponse(BaseModel):
+    """Structured response from the reranker LLM."""
+    scores: List[DocumentScore] = Field(..., description="List of document scores")
 
 
 class RerankerService:
-    """Service for reranking search results using OpenAI."""
+    """Service for reranking search results using OpenAI structured output."""
 
     def __init__(self):
         """Initialize the reranker service."""
-        logger.info("Reranker service initialized (using OpenAI)")
+        logger.info("Reranker service initialized (using OpenAI structured output)")
 
     def rerank(
         self,
@@ -26,7 +41,7 @@ class RerankerService:
         top_k: int = 5
     ) -> List[Dict[str, Any]]:
         """
-        Rerank documents based on relevance to query using OpenAI.
+        Rerank documents based on relevance to query using OpenAI structured output.
 
         Args:
             query: The search query
@@ -45,31 +60,38 @@ class RerankerService:
         try:
             # Build document list for scoring
             doc_list = "\n".join([
-                f"[Doc {i}]: {doc.get('text', '')[:500]}"  # Limit text length
+                f"[Doc {i}]: {doc.get('text', '')[:500]}"
                 for i, doc in enumerate(documents)
             ])
 
-            system_prompt = """You are a relevance scoring expert.
-Given a query and a list of documents, score each document's relevance to the query.
-Return ONLY a valid JSON array of objects with 'index' and 'score' (0-10 scale).
-Higher score = more relevant. Be strict - only highly relevant docs should score above 7.
-Example output: [{"index": 0, "score": 8.5}, {"index": 1, "score": 3.2}]"""
-
-            user_prompt = f"""Query: {query}
-
-Documents:
-{doc_list}
-
-Score each document's relevance (0-10). Return JSON array only."""
-
-            # Get scores from OpenAI
-            response = openai_service.chat(
-                user_message=user_prompt,
-                system_message=system_prompt
+            # Load prompts from YAML config
+            system_prompt = prompt_loader.get_prompt("reranker", "reranker", "system")
+            user_prompt = prompt_loader.format_prompt(
+                "reranker", "reranker", "user",
+                query=query,
+                doc_list=doc_list
             )
 
-            # Parse JSON response
-            scores = self._parse_scores(response, len(documents))
+            # Get model config from YAML
+            model = prompt_loader.get_config("reranker", "reranker", "model", "gpt-4o-mini")
+            temperature = prompt_loader.get_config("reranker", "reranker", "temperature", 0)
+
+            # Get structured response from OpenAI
+            response = openai_service.chat_structured(
+                response_model=RerankerResponse,
+                user_message=user_prompt,
+                system_message=system_prompt,
+                model=model,
+                temperature=temperature
+            )
+
+            # Convert to scores dict
+            scores: Dict[int, float] = {}
+            for doc_score in response.scores:
+                if 0 <= doc_score.index < len(documents):
+                    scores[doc_score.index] = doc_score.score
+
+            logger.info(f"Received {len(scores)} document scores from LLM")
 
             # Add scores to documents
             scored_docs = []
@@ -89,44 +111,6 @@ Score each document's relevance (0-10). Return JSON array only."""
         except Exception as e:
             logger.error(f"Reranking failed: {e}")
             return documents[:top_k]
-
-    def _parse_scores(self, response: str, num_docs: int) -> Dict[int, float]:
-        """
-        Parse scores from OpenAI response.
-
-        Args:
-            response: JSON string from OpenAI
-            num_docs: Number of documents
-
-        Returns:
-            Dict mapping document index to score
-        """
-        scores = {}
-
-        try:
-            # Clean response - extract JSON array
-            response = response.strip()
-            if response.startswith("```"):
-                response = response.split("```")[1]
-                if response.startswith("json"):
-                    response = response[4:]
-
-            # Parse JSON
-            parsed = json.loads(response)
-
-            for item in parsed:
-                idx = item.get("index", -1)
-                score = item.get("score", 0)
-                if 0 <= idx < num_docs:
-                    scores[idx] = float(score)
-
-        except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse reranker response: {e}")
-            # Fallback: assign decreasing scores based on original order
-            for i in range(num_docs):
-                scores[i] = num_docs - i
-
-        return scores
 
 
 # Default service instance
