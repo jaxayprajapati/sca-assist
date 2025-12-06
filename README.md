@@ -66,6 +66,44 @@ sca-assist/
 └── README.md
 ```
 
+## Docker Usage
+
+To run the application and MongoDB using Docker Compose:
+
+### Build and Start Containers
+```bash
+docker-compose up --build
+```
+
+### Stop Containers
+```bash
+docker-compose down
+```
+
+### View Logs
+```bash
+docker-compose logs -f
+```
+
+### Restart Containers
+```bash
+docker-compose restart
+```
+
+### Run in Detached Mode (background)
+```bash
+docker-compose up -d
+```
+
+### Rebuild Only the API Service
+```bash
+docker-compose up --build api
+```
+
+These commands will start both the FastAPI server and MongoDB in isolated containers, using the environment variables from your `.env` file. Make sure your `.env` uses `MONGODB_URI=mongodb://mongodb:27017` for Docker Compose.
+
+NOTE : If you're using docker then no need of installation step just add env var in .env only
+
 ## Installation
 
 ### Prerequisites
@@ -102,15 +140,25 @@ sca-assist/
 
 4. **Create environment file**
 
-   Create a `.env` file in the project root:
-   ```env
-   DEBUG=true
-   OPENAI_API_KEY=your-openai-api-key-here
-   ```
+  Create a `.env` file in the project root. Use the correct MongoDB URI for your environment:
+
+  **For local development:**
+  ```env
+  DEBUG=true
+  OPENAI_API_KEY=your-openai-api-key-here
+  MONGODB_URI=mongodb://localhost:27017
+  ```
+
+  **For Docker Compose:**
+  ```env
+  DEBUG=true
+  OPENAI_API_KEY=your-openai-api-key-here
+  MONGODB_URI=mongodb://mongodb:27017
+  ```
 
 5. **Start MongoDB**
 
-   Make sure MongoDB is running on `localhost:27017`
+  Make sure MongoDB is running on `localhost:27017` for local development, or use Docker Compose to start both API and MongoDB containers.
 
 ## Running the Application
 
@@ -225,10 +273,11 @@ curl -X DELETE "http://localhost:8000/documents"
 
 ### Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DEBUG` | Enable debug mode (true/false) | Yes |
-| `OPENAI_API_KEY` | OpenAI API key | Yes |
+| Variable        | Description                        | Required |
+|-----------------|------------------------------------|----------|
+| `DEBUG`         | Enable debug mode (true/false)     | Yes      |
+| `OPENAI_API_KEY`| OpenAI API key                     | Yes      |
+| `MONGODB_URI`   | MongoDB connection URI             | Yes      |
 
 ### Default Settings
 
@@ -241,7 +290,7 @@ curl -X DELETE "http://localhost:8000/documents"
 | Chat Model | gpt-4o-mini |
 | Reranker Model | gpt-4o-mini |
 | Reranker Temperature | 0 |
-| MongoDB Host | localhost |
+| MongoDB Host | localhost (local) / mongodb (docker) |
 | MongoDB Port | 27017 |
 | Database Name | sca_assist |
 | Vector Collection | documents |

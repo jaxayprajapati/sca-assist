@@ -1,0 +1,63 @@
+# Docker ignore file to exclude unnecessary files from the build context
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+.Python
+*.egg-info/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Experiments and tests
+experiments/
+tests/
+
+# Data files
+data/
+*.pdf
+
+# Logs
+logs/
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Documentation
+*.md
+!README.md
+
+# Scripts
+create_repo.py
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db

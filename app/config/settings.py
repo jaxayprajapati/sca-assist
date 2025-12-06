@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     DEBUG: bool
     OPENAI_API_KEY: str
+    MONGODB_URI: str
 
 
 settings = Settings()

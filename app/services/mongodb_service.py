@@ -30,30 +30,34 @@ class MongoDBService:
 
     def __init__(
         self,
-        host: str = "localhost",
-        port: int = 27017,
+        host: str = None,
+        port: int = None,
         database: str = "sca_assist"
     ):
         """
         Initialize the MongoDB vector store service.
 
         Args:
-            host: MongoDB host (default: localhost)
-            port: MongoDB port (default: 27017)
+            host: MongoDB host (default: from settings or localhost)
+            port: MongoDB port (default: from settings or 27017)
             database: Database name (default: sca_assist)
         """
-        self.host = host
-        self.port = port
-        self.database_name = database
-
-        # Connection URI
-        self.uri = f"mongodb://{host}:{port}"
-
-        # Initialize client
-        self.client: MongoClient = MongoClient(self.uri)
-        self.db: Database = self.client[database]
-
-        logger.info(f"MongoDB vector store service initialized: {self.uri}/{database}")
+        # Use MONGODB_URI from settings if available
+        mongodb_uri = getattr(settings, "MONGODB_URI", None)
+        if mongodb_uri:
+            self.uri = mongodb_uri
+            self.database_name = database
+            self.client: MongoClient = MongoClient(self.uri)
+            self.db: Database = self.client[database]
+            logger.info(f"MongoDB vector store service initialized: {self.uri}/{database}")
+        else:
+            self.host = host or "localhost"
+            self.port = port or 27017
+            self.database_name = database
+            self.uri = f"mongodb://{self.host}:{self.port}"
+            self.client: MongoClient = MongoClient(self.uri)
+            self.db: Database = self.client[database]
+            logger.info(f"MongoDB vector store service initialized: {self.uri}/{database}")
 
     def get_collection(self, collection_name: str) -> Collection:
         """

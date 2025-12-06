@@ -1,0 +1,46 @@
+services:
+  # SCA Assist API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sca-assist-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=true
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MONGODB_URI=mongodb://mongodb:27017
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - sca-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: sca-assist-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - sca-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  sca-network:
+    driver: bridge
