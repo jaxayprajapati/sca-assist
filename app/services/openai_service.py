@@ -43,9 +43,10 @@ class OpenAIService:
             max_tokens=max_tokens
         )
 
-        # Initialize Embeddings
+        # Initialize Embeddings (using latest OpenAI embedding model)
         self.embeddings = OpenAIEmbeddings(
-            api_key=settings.OPENAI_API_KEY
+            api_key=settings.OPENAI_API_KEY,
+            model="text-embedding-3-large"
         )
 
         logger.info(f"OpenAI service initialized with model: {model}")

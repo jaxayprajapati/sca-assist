@@ -7,6 +7,7 @@ a file and the console for easy debugging and monitoring.
 
 import logging
 import os
+import sys
 
 # Get the project root directory (parent of app folder)
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -21,14 +22,22 @@ if not os.path.exists(LOG_DIR):
 # Path to the main application log file
 LOG_FILE = os.path.join(LOG_DIR, "app.log")
 
-# Configure the root logger with both file and console handlers
+# Log format
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s"
+
+# Create file handler with UTF-8 encoding
+file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+
+# Create console handler with UTF-8 encoding for Windows compatibility
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+
+# Configure the root logger
 logging.basicConfig(
     level=logging.INFO,  # Minimum level to capture (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-    format="%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s",  # Log message format with file, line, and function
-    handlers=[
-        logging.FileHandler(LOG_FILE),  # Write logs to file
-        logging.StreamHandler()  # Print logs to console
-    ]
+    format=LOG_FORMAT,
+    handlers=[file_handler, console_handler]
 )
 
 # Application logger instance - use this throughout the app
