@@ -67,9 +67,14 @@ async def ingest_pdf(file: UploadFile = File(...)):
 async def ask_question(request: QuestionRequest):
     """
     Ask a question and get an answer based on ingested documents (RAG).
+    Uses optional reranking for improved precision.
     """
     try:
-        result = rag_service.ask_question(request.question, request.k)
+        result = rag_service.ask_question(
+            request.question,
+            request.k,
+            request.use_reranker
+        )
         return QuestionResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -81,9 +86,14 @@ async def ask_question(request: QuestionRequest):
 async def similarity_search(request: SearchRequest):
     """
     Perform similarity search on ingested documents.
+    Uses optional reranking for improved precision.
     """
     try:
-        result = rag_service.similarity_search(request.query, request.k)
+        result = rag_service.similarity_search(
+            request.query,
+            request.k,
+            request.use_reranker
+        )
         return SearchResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -30,6 +30,7 @@ class QuestionRequest(BaseModel):
     """Request model for question answering."""
     question: str
     k: int = 5  # Number of documents to retrieve
+    use_reranker: bool = True  # Use reranker for precision boost
 
 
 class SourceInfo(BaseModel):
@@ -38,6 +39,7 @@ class SourceInfo(BaseModel):
     page: Any
     source: Any
     score: float
+    rerank_score: Optional[float] = None
 
 
 class QuestionResponse(BaseModel):
@@ -53,12 +55,14 @@ class SearchRequest(BaseModel):
     """Request model for similarity search."""
     query: str
     k: int = 5
+    use_reranker: bool = True  # Use reranker for precision boost
 
 
 class SearchResult(BaseModel):
     """Single search result."""
     text: str
     score: float
+    rerank_score: Optional[float] = None
     metadata: dict
 
 

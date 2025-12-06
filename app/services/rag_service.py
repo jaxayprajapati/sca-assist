@@ -13,6 +13,7 @@ from app.utils.logging import logger
 from app.services.ingest_service import ingest_service
 from app.services.openai_service import openai_service
 from app.services.mongodb_service import mongodb_service
+from app.services.reranker_service import reranker_service
 
 
 class RAGService:
@@ -112,26 +113,28 @@ class RAGService:
             # Cleanup temp file
             os.unlink(tmp_path)
 
-    def ask_question(self, question: str, k: int = 5) -> Dict[str, Any]:
+    def ask_question(self, question: str, k: int = 5, use_reranker: bool = True) -> Dict[str, Any]:
         """
-        Answer a question using RAG.
+        Answer a question using RAG with optional reranking.
 
         Args:
             question: The question to answer
             k: Number of documents to retrieve
+            use_reranker: Whether to use reranker for precision boost
 
         Returns:
             Dictionary with answer and sources
         """
-        logger.info(f"Question: {question}")
+        logger.info(f"Question: {question} (reranker: {use_reranker})")
 
         # Step 1: Generate embedding for the query
         query_embedding = openai_service.get_embedding(question)
 
-        # Step 2: Retrieve relevant documents
+        # Step 2: Retrieve relevant documents (fetch more if using reranker)
+        fetch_k = 20 if use_reranker else k
         results = mongodb_service.similarity_search(
             query_embedding=query_embedding,
-            k=k
+            k=fetch_k
         )
 
         if not results:
@@ -141,13 +144,24 @@ class RAGService:
                 "sources": []
             }
 
-        # Step 3: Build context from retrieved documents
+        # Step 3: Apply reranking if enabled
+        if use_reranker and results:
+            logger.info(f"Reranking {len(results)} results...")
+            results = reranker_service.rerank(
+                query=question,
+                documents=results,
+                top_k=k
+            )
+        else:
+            results = results[:k]
+
+        # Step 4: Build context from retrieved documents
         context = "\n\n".join([
             f"[Page {r.get('metadata', {}).get('page', 'N/A')}]: {r.get('text', '')}"
             for r in results
         ])
 
-        # Step 4: Generate answer using OpenAI
+        # Step 5: Generate answer using OpenAI
         system_prompt = """You are a helpful assistant that answers questions based on the provided context.
 Use only the information from the context to answer the question.
 If the context doesn't contain enough information to answer, say so.
@@ -171,7 +185,8 @@ Please provide a detailed answer based on the context above."""
                 "text": r.get("text", "")[:200] + "...",
                 "page": r.get("metadata", {}).get("page", "N/A"),
                 "source": r.get("metadata", {}).get("source", "N/A"),
-                "score": r.get("score", 0)
+                "score": r.get("original_score", r.get("score", 0)),
+                "rerank_score": r.get("rerank_score")
             }
             for r in results
         ]
@@ -184,32 +199,46 @@ Please provide a detailed answer based on the context above."""
             "sources": sources
         }
 
-    def similarity_search(self, query: str, k: int = 5) -> Dict[str, Any]:
+    def similarity_search(self, query: str, k: int = 5, use_reranker: bool = True) -> Dict[str, Any]:
         """
-        Perform similarity search on ingested documents.
+        Perform similarity search on ingested documents with optional reranking.
 
         Args:
             query: The search query
             k: Number of results to return
+            use_reranker: Whether to use reranker for precision boost
 
         Returns:
             Dictionary with search results
         """
-        logger.info(f"Search query: {query}")
+        logger.info(f"Search query: {query} (reranker: {use_reranker})")
 
         # Generate embedding for the query
         query_embedding = openai_service.get_embedding(query)
 
-        # Perform similarity search
+        # Perform similarity search (fetch more if using reranker)
+        fetch_k = 20 if use_reranker else k
         results = mongodb_service.similarity_search(
             query_embedding=query_embedding,
-            k=k
+            k=fetch_k
         )
+
+        # Apply reranking if enabled
+        if use_reranker and results:
+            logger.info(f"Reranking {len(results)} results...")
+            results = reranker_service.rerank(
+                query=query,
+                documents=results,
+                top_k=k
+            )
+        else:
+            results = results[:k]
 
         search_results = [
             {
                 "text": r.get("text", ""),
-                "score": r.get("score", 0),
+                "score": r.get("original_score", r.get("score", 0)),
+                "rerank_score": r.get("rerank_score"),
                 "metadata": r.get("metadata", {})
             }
             for r in results
