@@ -15,6 +15,7 @@ from app.services.ingest_service import ingest_service
 from app.services.openai_service import openai_service
 from app.services.mongodb_service import mongodb_service
 from app.services.reranker_service import reranker_service
+from app.services.query_router_service import query_router_service
 
 
 class RAGService:
@@ -114,19 +115,36 @@ class RAGService:
             # Cleanup temp file
             os.unlink(tmp_path)
 
-    def ask_question(self, question: str, k: int = 5, use_reranker: bool = True) -> Dict[str, Any]:
+    def ask_question(self, question: str, k: int = 5, use_reranker: bool = True, use_router: bool = True) -> Dict[str, Any]:
         """
-        Answer a question using RAG with optional reranking.
+        Answer a question using RAG with optional reranking and query routing.
 
         Args:
             question: The question to answer
             k: Number of documents to retrieve
             use_reranker: Whether to use reranker for precision boost
+            use_router: Whether to use smart query routing
 
         Returns:
             Dictionary with answer and sources
         """
-        logger.info(f"Question: {question} (reranker: {use_reranker})")
+        logger.info(f"Question: {question} (reranker: {use_reranker}, router: {use_router})")
+
+        # Step 0: Smart query routing (skip retrieval for greetings/off-topic)
+        if use_router:
+            document_count = self.get_document_count()
+            should_proceed, direct_response = query_router_service.should_proceed_to_rag(
+                question, document_count
+            )
+
+            if not should_proceed:
+                logger.info("Query routed to direct response (skipping RAG)")
+                return {
+                    "question": question,
+                    "answer": direct_response,
+                    "sources": [],
+                    "routed": True
+                }
 
         # Step 1: Generate embedding for the query
         query_embedding = openai_service.get_embedding(question)
@@ -192,7 +210,8 @@ class RAGService:
         return {
             "question": question,
             "answer": answer,
-            "sources": sources
+            "sources": sources,
+            "routed": False
         }
 
     def similarity_search(self, query: str, k: int = 5, use_reranker: bool = True) -> Dict[str, Any]:

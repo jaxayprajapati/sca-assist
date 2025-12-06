@@ -67,13 +67,14 @@ async def ingest_pdf(file: UploadFile = File(...)):
 async def ask_question(request: QuestionRequest):
     """
     Ask a question and get an answer based on ingested documents (RAG).
-    Uses optional reranking for improved precision.
+    Uses smart query routing and optional reranking for improved precision.
     """
     try:
         result = rag_service.ask_question(
             request.question,
             request.k,
-            request.use_reranker
+            request.use_reranker,
+            use_router=True  # Always use smart routing
         )
         return QuestionResponse(**result)
     except Exception as e:

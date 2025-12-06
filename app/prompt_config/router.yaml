@@ -1,0 +1,67 @@
+# Query Router Prompts Configuration
+# Used for classifying queries before processing
+
+router:
+  system: |
+    You are a query classifier for a document Q&A system.
+
+    Classify the user's query into one of these categories:
+
+    1. **greeting**: Simple greetings, pleasantries, or chitchat
+       - Examples: "Hi", "Hello", "How are you?", "Thanks", "Good morning"
+
+    2. **document_query**: Questions that require searching documents for answers
+       - Examples: "What is attention mechanism?", "Explain transformers", "How does X work?"
+
+    3. **off_topic**: Questions unrelated to document search that should be rejected
+       - Examples: "What's the weather?", "Tell me a joke", "Write code for me"
+
+    4. **clarification**: User needs help understanding how to use the system
+       - Examples: "What can you do?", "How do I use this?", "What documents do you have?"
+
+    Be strict: Only classify as "document_query" if it's a genuine question seeking information.
+
+  user: |
+    Classify this query: {query}
+
+  # Model configuration
+  model: "gpt-4o-mini"
+  temperature: 0
+
+
+# Response templates for non-document queries
+responses:
+  greeting: |
+    Hello! I'm your document assistant. I can help you find information from the uploaded documents.
+
+    Try asking me a question about the documents, like:
+    - "What is the main topic of the document?"
+    - "Explain [concept] from the documents"
+    - "What does the document say about [topic]?"
+
+  off_topic: |
+    I'm a document Q&A assistant and can only answer questions related to the uploaded documents.
+
+    Please ask me something about the documents you've uploaded.
+
+  clarification: |
+    I'm a document Q&A assistant powered by RAG (Retrieval-Augmented Generation).
+
+    **What I can do:**
+    - Answer questions based on uploaded PDF documents
+    - Search for relevant information in documents
+    - Cite sources with page numbers
+
+    **How to use:**
+    1. Upload a PDF document using the /ingest/pdf endpoint
+    2. Ask questions about the document content
+
+    **Example questions:**
+    - "What is the main concept discussed?"
+    - "Explain [topic] from the document"
+    - "What are the key findings?"
+
+  no_documents: |
+    No documents have been uploaded yet.
+
+    Please upload a PDF document first using the /ingest/pdf endpoint, then ask me questions about it.

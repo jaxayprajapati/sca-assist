@@ -9,8 +9,10 @@ End-to-end implementation of a RAG (Retrieval-Augmented Generation) based docume
 - **Vector Embeddings**: OpenAI's `text-embedding-3-large` model (3072 dimensions)
 - **Vector Store**: MongoDB for storing document embeddings
 - **Similarity Search**: Cosine similarity for document retrieval
+- **Smart Query Router**: Classifies queries to skip RAG for greetings/off-topic
 - **Query Reranking**: OpenAI-powered reranker for precision boost
 - **RAG Question Answering**: Context-aware answers using OpenAI GPT models
+- **Prompt Guardrails**: Out-of-context detection and response rules
 - **Structured Output**: Pydantic-based structured LLM responses
 - **Prompt Configuration**: YAML-based prompt management
 - **REST API**: FastAPI endpoints for all operations
@@ -22,6 +24,7 @@ End-to-end implementation of a RAG (Retrieval-Augmented Generation) based docume
 | Language | Python 3.12 |
 | Web Framework | FastAPI |
 | LLM | OpenAI GPT-4o-mini |
+| Query Router | OpenAI GPT-4o-mini (Structured Output) |
 | Reranker | OpenAI GPT-4o-mini (Structured Output) |
 | Embeddings | OpenAI text-embedding-3-large |
 | Vector Store | MongoDB |
@@ -43,13 +46,15 @@ sca-assist/
 │   │   └── schemas.py          # Pydantic request/response models
 │   ├── prompt_config/          # YAML prompt configuration files
 │   │   ├── reranker.yaml       # Reranker prompts & settings
-│   │   └── rag.yaml            # RAG Q&A prompts
+│   │   ├── rag.yaml            # RAG Q&A prompts with guardrails
+│   │   └── router.yaml         # Query router prompts & responses
 │   ├── services/
 │   │   ├── ingest_service.py   # Document loading and chunking
 │   │   ├── openai_service.py   # OpenAI chat, embeddings & structured output
 │   │   ├── mongodb_service.py  # MongoDB vector store operations
 │   │   ├── rag_service.py      # RAG business logic
-│   │   └── reranker_service.py # Query reranking for precision boost
+│   │   ├── reranker_service.py # Query reranking for precision boost
+│   │   └── query_router_service.py # Smart query classification
 │   └── utils/
 │       ├── logging.py          # Logging configuration
 │       └── prompt_loader.py    # YAML prompt loader utility
@@ -173,15 +178,21 @@ curl -X POST "http://localhost:8000/ingest/pdf" \
 ### Ask a Question
 
 ```bash
-# With reranking (default - enabled)
+# Document query (goes through full RAG pipeline)
 curl -X POST "http://localhost:8000/ask" \
   -H "Content-Type: application/json" \
-  -d '{"question": "What is the attention mechanism?", "k": 5, "use_reranker": true}'
+  -d '{"question": "What is the attention mechanism?", "k": 5}'
+
+# Greeting (handled directly by router - no RAG)
+curl -X POST "http://localhost:8000/ask" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Hi"}'
+# Response: "Hello! I'm your document assistant..."
 
 # Without reranking
 curl -X POST "http://localhost:8000/ask" \
   -H "Content-Type: application/json" \
-  -d '{"question": "What is the attention mechanism?", "k": 5, "use_reranker": false}'
+  -d '{"question": "What is the attention mechanism?", "use_reranker": false}'
 ```
 
 ### Similarity Search
@@ -235,6 +246,55 @@ curl -X DELETE "http://localhost:8000/documents"
 | Database Name | sca_assist |
 | Vector Collection | documents |
 
+## Smart Query Router
+
+The query router classifies incoming queries to optimize processing:
+
+### Query Classifications
+
+| Type | Example | Action |
+|------|---------|--------|
+| `greeting` | "Hi", "Hello", "Thanks" | Direct friendly response (no RAG) |
+| `document_query` | "What is attention?" | Full RAG pipeline |
+| `off_topic` | "What's the weather?" | Polite rejection (no RAG) |
+| `clarification` | "What can you do?" | Help/usage info (no RAG) |
+
+### How It Works
+
+```
+User Query
+    │
+    ▼
+┌─────────────────┐
+│  Query Router   │ ─── Greeting ────► Direct Response
+│  (Classifier)   │ ─── Off-topic ───► Rejection
+│                 │ ─── Clarification ► Help Info
+└────────┬────────┘
+         │
+    Document Query
+         │
+         ▼
+┌─────────────────┐
+│  Vector Search  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│    Reranker     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   RAG Answer    │
+└─────────────────┘
+```
+
+### Benefits
+
+- **Cost Savings**: Skip expensive embeddings/LLM calls for simple queries
+- **Faster Response**: Instant responses for greetings
+- **Better UX**: Appropriate responses for each query type
+
 ## Query Reranking
 
 The reranker improves search precision by re-scoring initial vector search results using GPT-4o-mini:
@@ -243,11 +303,16 @@ The reranker improves search precision by re-scoring initial vector search resul
 2. **Reranking**: GPT-4o-mini scores each document's relevance (0-10 scale)
 3. **Final Results**: Returns top K documents sorted by rerank score
 
-### How It Works
+### Scoring Guidelines
 
-```
-Query → Vector Search (20 docs) → Reranker (GPT-4o-mini) → Top K Results
-```
+| Score | Meaning |
+|-------|--------|
+| 9-10 | Directly answers query |
+| 7-8 | Highly relevant |
+| 5-6 | Somewhat related |
+| 3-4 | Minor relevance |
+| 1-2 | Very weak relevance |
+| 0 | Completely irrelevant |
 
 ### Configuration
 
@@ -267,8 +332,19 @@ All LLM prompts are externalized to YAML files in `app/prompt_config/`:
 
 | File | Purpose |
 |------|--------|
+| `router.yaml` | Query router prompts & canned responses |
 | `reranker.yaml` | Reranker system/user prompts + model settings |
-| `rag.yaml` | RAG Q&A system/user prompts |
+| `rag.yaml` | RAG Q&A system/user prompts with guardrails |
+
+### Prompt Guardrails
+
+The RAG prompts include strict guardrails:
+
+- **Context-Only Answers**: Use ONLY information from documents
+- **Out-of-Context Detection**: Reject unrelated questions
+- **No Hallucination**: Never make up information
+- **Citation Required**: Always cite page numbers
+- **Off-Topic Rejection**: Politely decline irrelevant queries
 
 ### Usage
 

@@ -47,6 +47,7 @@ class QuestionResponse(BaseModel):
     question: str
     answer: str
     sources: List[SourceInfo]
+    routed: bool = False  # True if handled by router without RAG
 
 
 # ==================== Search Schemas ====================

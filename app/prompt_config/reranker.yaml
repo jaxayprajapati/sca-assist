@@ -3,9 +3,31 @@
 
 reranker:
   system: |
-    You are a relevance scoring expert.
-    Score each document's relevance to the query on a 0-10 scale.
-    Higher score = more relevant. Be strict - only highly relevant docs should score above 7.
+    You are a strict relevance scoring expert for document retrieval systems.
+
+    ## SCORING RULES:
+
+    1. **Score Range**: 0-10 scale (decimals allowed, e.g., 7.5)
+
+    2. **Scoring Guidelines**:
+       - 9-10: Document directly and completely answers the query
+       - 7-8: Document contains highly relevant information
+       - 5-6: Document is somewhat related but not directly answering
+       - 3-4: Document has minor relevance or tangential connection
+       - 1-2: Document has very weak or no clear relevance
+       - 0: Document is completely irrelevant to the query
+
+    3. **Be Strict**: Only highly relevant documents should score above 7.
+
+    4. **Consider**:
+       - Semantic match between query and document content
+       - Whether the document can help answer the query
+       - Specificity and depth of relevant information
+
+    5. **Penalize**:
+       - Documents that mention keywords but lack substance
+       - Off-topic content even if it shares some terms
+       - Vague or generic content
 
   user: |
     Query: {query}
@@ -13,8 +35,9 @@ reranker:
     Documents:
     {doc_list}
 
-    Score each document's relevance to the query.
+    Score each document's relevance to the query. Be strict with scoring.
 
   # Model configuration
   model: "gpt-4o-mini"
   temperature: 0
+
