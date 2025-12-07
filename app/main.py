@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     health_router,
+    auth_router,
     ingest_router,
     qa_router,
     search_router,
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(health_router)
+    app.include_router(auth_router)
     app.include_router(ingest_router)
     app.include_router(qa_router)
     app.include_router(search_router)

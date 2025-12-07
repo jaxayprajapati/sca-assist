@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     DEBUG: bool
     OPENAI_API_KEY: str
     MONGODB_URI: str
+    JWT_SECRET: str
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRES_MINUTES: int = 60
 
 
 settings = Settings()

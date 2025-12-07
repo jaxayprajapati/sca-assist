@@ -83,3 +83,19 @@ class DocumentCountResponse(BaseModel):
 class DeleteResponse(BaseModel):
     """Response model for delete operations."""
     message: str
+
+
+# ==================== Auth Schemas ====================
+
+class TokenRequest(BaseModel):
+    """Request model for issuing JWT access tokens."""
+    subject: str
+    scopes: Optional[List[str]] = None
+    expires_minutes: Optional[int] = None
+
+
+class TokenResponse(BaseModel):
+    """Response model for JWT access tokens."""
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int

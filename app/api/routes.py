@@ -4,7 +4,7 @@ API Routes for SCA Assist.
 This module contains all the API endpoint definitions.
 """
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 from app.models.schemas import (
     HealthResponse,
@@ -14,14 +14,19 @@ from app.models.schemas import (
     SearchRequest,
     SearchResponse,
     DocumentCountResponse,
-    DeleteResponse
+    DeleteResponse,
+    TokenRequest,
+    TokenResponse,
 )
 from app.services.rag_service import rag_service
+from app.core.auth import get_current_user, create_access_token
+from app.config.settings import settings
 
 
 # ==================== Routers ====================
 
 health_router = APIRouter(tags=["Health"])
+auth_router = APIRouter(prefix="/auth", tags=["Auth"])
 ingest_router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 qa_router = APIRouter(tags=["Question Answering"])
 search_router = APIRouter(tags=["Search"])
@@ -43,10 +48,31 @@ async def health_check():
     return HealthResponse(**result)
 
 
+# ==================== Auth Endpoints ====================
+
+@auth_router.post("/token", response_model=TokenResponse)
+async def issue_token(request: TokenRequest):
+    """Issue a JWT access token for the given subject and optional scopes."""
+    try:
+        token = create_access_token(
+            subject=request.subject,
+            scopes=request.scopes,
+            expires_minutes=request.expires_minutes,
+        )
+        expires_minutes = request.expires_minutes or settings.JWT_EXPIRES_MINUTES
+        return TokenResponse(
+            access_token=token,
+            token_type="bearer",
+            expires_in=expires_minutes * 60,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==================== Ingestion Endpoints ====================
 
 @ingest_router.post("/pdf", response_model=IngestResponse)
-async def ingest_pdf(file: UploadFile = File(...)):
+async def ingest_pdf(file: UploadFile = File(...), user=Depends(get_current_user)):
     """
     Ingest a PDF file: chunk, embed, and store in MongoDB.
     """
@@ -64,7 +90,7 @@ async def ingest_pdf(file: UploadFile = File(...)):
 # ==================== Question Answering Endpoints ====================
 
 @qa_router.post("/ask", response_model=QuestionResponse)
-async def ask_question(request: QuestionRequest):
+async def ask_question(request: QuestionRequest, user=Depends(get_current_user)):
     """
     Ask a question and get an answer based on ingested documents (RAG).
     Uses smart query routing and optional reranking for improved precision.
@@ -84,7 +110,7 @@ async def ask_question(request: QuestionRequest):
 # ==================== Search Endpoints ====================
 
 @search_router.post("/search", response_model=SearchResponse)
-async def similarity_search(request: SearchRequest):
+async def similarity_search(request: SearchRequest, user=Depends(get_current_user)):
     """
     Perform similarity search on ingested documents.
     Uses optional reranking for improved precision.
@@ -103,7 +129,7 @@ async def similarity_search(request: SearchRequest):
 # ==================== Document Endpoints ====================
 
 @documents_router.get("/count", response_model=DocumentCountResponse)
-async def get_document_count():
+async def get_document_count(user=Depends(get_current_user)):
     """Get the total number of documents in the vector store."""
     try:
         count = rag_service.get_document_count()
@@ -113,7 +139,7 @@ async def get_document_count():
 
 
 @documents_router.delete("", response_model=DeleteResponse)
-async def delete_all_documents():
+async def delete_all_documents(user=Depends(get_current_user)):
     """Delete all documents from the vector store."""
     try:
         deleted = rag_service.delete_all_documents()
