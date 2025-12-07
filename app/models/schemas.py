@@ -2,7 +2,7 @@
 Pydantic schemas for API request/response models.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Any
 
 
@@ -89,13 +89,13 @@ class DeleteResponse(BaseModel):
 
 class TokenRequest(BaseModel):
     """Request model for issuing JWT access tokens."""
-    subject: str
-    scopes: Optional[List[str]] = None
-    expires_minutes: Optional[int] = None
+    subject: str = Field(..., min_length=1, max_length=256, description="User identifier or email")
+    scopes: Optional[List[str]] = Field(default=None, description="Optional permission scopes")
+    expires_minutes: Optional[int] = Field(default=None, ge=1, le=10080, description="Token expiry in minutes (max 7 days)")
 
 
 class TokenResponse(BaseModel):
     """Response model for JWT access tokens."""
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
+    access_token: str = Field(..., description="JWT access token")
+    token_type: str = Field(default="bearer", description="Token type")
+    expires_in: int = Field(..., description="Token expiry in seconds")

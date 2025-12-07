@@ -4,6 +4,8 @@ API Routes for SCA Assist.
 This module contains all the API endpoint definitions.
 """
 
+from typing import Dict, Any
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 from app.models.schemas import (
@@ -72,7 +74,10 @@ async def issue_token(request: TokenRequest):
 # ==================== Ingestion Endpoints ====================
 
 @ingest_router.post("/pdf", response_model=IngestResponse)
-async def ingest_pdf(file: UploadFile = File(...), user=Depends(get_current_user)):
+async def ingest_pdf(
+    file: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(get_current_user),
+):
     """
     Ingest a PDF file: chunk, embed, and store in MongoDB.
     """
@@ -90,7 +95,10 @@ async def ingest_pdf(file: UploadFile = File(...), user=Depends(get_current_user
 # ==================== Question Answering Endpoints ====================
 
 @qa_router.post("/ask", response_model=QuestionResponse)
-async def ask_question(request: QuestionRequest, user=Depends(get_current_user)):
+async def ask_question(
+    request: QuestionRequest,
+    user: Dict[str, Any] = Depends(get_current_user),
+):
     """
     Ask a question and get an answer based on ingested documents (RAG).
     Uses smart query routing and optional reranking for improved precision.
@@ -110,7 +118,10 @@ async def ask_question(request: QuestionRequest, user=Depends(get_current_user))
 # ==================== Search Endpoints ====================
 
 @search_router.post("/search", response_model=SearchResponse)
-async def similarity_search(request: SearchRequest, user=Depends(get_current_user)):
+async def similarity_search(
+    request: SearchRequest,
+    user: Dict[str, Any] = Depends(get_current_user),
+):
     """
     Perform similarity search on ingested documents.
     Uses optional reranking for improved precision.
@@ -129,7 +140,9 @@ async def similarity_search(request: SearchRequest, user=Depends(get_current_use
 # ==================== Document Endpoints ====================
 
 @documents_router.get("/count", response_model=DocumentCountResponse)
-async def get_document_count(user=Depends(get_current_user)):
+async def get_document_count(
+    user: Dict[str, Any] = Depends(get_current_user),
+):
     """Get the total number of documents in the vector store."""
     try:
         count = rag_service.get_document_count()
@@ -139,7 +152,9 @@ async def get_document_count(user=Depends(get_current_user)):
 
 
 @documents_router.delete("", response_model=DeleteResponse)
-async def delete_all_documents(user=Depends(get_current_user)):
+async def delete_all_documents(
+    user: Dict[str, Any] = Depends(get_current_user),
+):
     """Delete all documents from the vector store."""
     try:
         deleted = rag_service.delete_all_documents()
